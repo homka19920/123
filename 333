@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Для Настёны — Особенный Букет</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cormorant Garamond for romantic text & Fira Code / JetBrains Mono for clean monospaced font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #08080a;
+      font-family: 'Inter', sans-serif;
+      color: #f3f3f5;
+    }
+
+    .font-serif-title {
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    .font-ascii {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    /* Ambient Canvas Container */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Text Glow Effect */
+    .glow-title {
+      text-shadow: 0 0 20px rgba(255, 230, 210, 0.4),
+                   0 0 40px rgba(255, 120, 160, 0.2);
+    }
+
+    .glow-subtitle {
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Fade / Entrance Animations */
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 1.4s cubic-bezier(0.16, 1, 0.3, 1), transform 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .fade-in-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Subtle Glassmorphism */
+    .glass-panel {
+      background: rgba(18, 18, 24, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+
+    /* Pulse Subtle Animation for Hint */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.03); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-[#08080a] text-white flex flex-col justify-between relative overflow-hidden select-none">
+
+  <!-- Interactive Background 3D Canvas -->
+  <div id="canvas-container">
+    <canvas id="ascii-canvas"></canvas>
+  </div>
+
+  <!-- Top Bar Controls (Subtle & Minimalist) -->
+  <header class="relative z-10 p-4 sm:p-6 flex justify-between items-center pointer-events-none">
+    <div class="pointer-events-auto flex items-center space-x-2">
+      <div class="w-2.5 h-2.5 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899]"></div>
+      <span class="text-xs tracking-widest text-zinc-400 font-mono uppercase">3D ASCII Bouquet</span>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="pointer-events-auto flex items-center space-x-3">
+      <!-- Replay Animation Button -->
+      <button id="btn-replay" title="Перезапустить цветение" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-zinc-300 hover:text-white hover:border-pink-500/50 transition-all duration-300 active:scale-95">
+        <i class="fa-solid fa-rotate-right text-xs"></i>
+      </button>
+
+      <!-- Music/Sound Toggle -->
+      <button id="btn-sound" title="Фоновая музыка" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-zinc-300 hover:text-white hover:border-pink-500/50 transition-all duration-300 active:scale-95">
+        <i id="sound-icon" class="fa-solid fa-volume-xmark text-xs"></i>
+      </button>
+
+      <!-- Customize & Share Modal Button -->
+      <button id="btn-edit" title="Изменить текст / Ссылка" class="px-3.5 py-2 rounded-full glass-panel flex items-center space-x-2 text-xs font-medium text-zinc-200 hover:text-white hover:border-pink-500/50 transition-all duration-300 active:scale-95 shadow-lg">
+        <i class="fa-solid fa-pen-to-square text-pink-400 text-xs"></i>
+        <span class="hidden sm:inline">Изменить</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interactive Rotation Touch Indicator (Fades out after interaction) -->
+  <div id="touch-hint" class="relative z-10 self-center pointer-events-none opacity-60 text-center transition-opacity duration-700">
+    <p class="text-[10px] tracking-widest text-zinc-400 uppercase font-mono bg-black/40 px-3 py-1 rounded-full border border-white/5 backdrop-blur-md">
+      <i class="fa-solid fa-hand-pointer mr-1.5 text-pink-400"></i> Потяните, чтобы повернуть букет
+    </p>
+  </div>
+
+  <!-- Bottom Hero Typography overlay (Centered beneath bouquet) -->
+  <main class="relative z-10 pb-8 sm:pb-12 px-6 text-center pointer-events-none flex flex-col items-center justify-end">
+    <div id="text-wrapper" class="fade-in-up max-w-xl mx-auto space-y-3">
+      <!-- Tagline -->
+      <p id="disp-tagline" class="text-[11px] sm:text-xs font-mono uppercase tracking-[0.25em] text-zinc-400 font-medium">
+        ЦВЕТЫ, КОТОРЫЕ НЕ ЗАВЯНУТ
+      </p>
+
+      <!-- Main Title (Recipient Name) -->
+      <h1 id="disp-title" class="text-4xl sm:text-6xl md:text-7xl font-serif-title font-semibold text-[#f8f1e7] tracking-tight glow-title">
+        Для Настёны
+      </h1>
+
+      <!-- Subtitle Message -->
+      <p id="disp-subtitle" class="text-sm sm:text-base text-zinc-300/90 font-light max-w-md mx-auto leading-relaxed glow-subtitle">
+        Пусть у тебя всегда будет повод улыбаться ✨
+      </p>
+    </div>
+  </main>
+
+  <!-- Customization Modal -->
+  <div id="modal-edit" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl border border-white/10 transform scale-95 transition-all duration-300" id="modal-card">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-white/10 pb-4">
+        <h3 class="text-lg font-serif-title font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-wand-magic-sparkles text-pink-400 text-sm"></i>
+          <span>Персонализировать подарок</span>
+        </h3>
+        <button id="modal-close" class="text-zinc-400 hover:text-white text-sm w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Input Form -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Кому (Имя / Заголовок)</label>
+          <input type="text" id="input-title" placeholder="Для Настёны" class="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-600 focus:outline-none focus:border-pink-500/80 font-serif-title text-xl transition-all">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Подпись / Пожелайние</label>
+          <textarea id="input-subtitle" rows="2" placeholder="Пусть у тебя всегда будет повод улыбаться" class="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-600 focus:outline-none focus:border-pink-500/80 text-sm transition-all resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Верхний тэг</label>
+          <input type="text" id="input-tagline" placeholder="ЦВЕТЫ, КОТОРЫЕ НЕ ЗАВЯНУТ" class="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-600 focus:outline-none focus:border-pink-500/80 text-xs font-mono uppercase transition-all">
+        </div>
+
+        <!-- Preset Quick Selector -->
+        <div>
+          <label class="block text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-2">Быстрые варианты</label>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn-preset text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 transition-all" data-title="Для Настёны" data-sub="Пусть у тебя всегда будет повод улыбаться ✨">Настёне</button>
+            <button type="button" class="btn-preset text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 transition-all" data-title="Для Любимой" data-sub="Ты делаешь этот мир красивее 💖">Любимой</button>
+            <button type="button" class="btn-preset text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 transition-all" data-title="Мамуле" data-sub="С любовью и благодарностью 🌸">Маме</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-2 flex flex-col sm:flex-row gap-3">
+        <button id="btn-save-apply" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 text-white font-medium text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-pink-500/25 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-check text-xs"></i>
+          <span>Применить</span>
+        </button>
+        <button id="btn-copy-link" class="py-3 px-5 rounded-xl glass-panel text-zinc-200 hover:text-white text-sm font-medium hover:border-pink-500/50 active:scale-[0.98] transition-all flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-link text-xs text-pink-400"></i>
+          <span>Скопировать ссылку</span>
+        </button>
+      </div>
+
+      <!-- Link Copied Toast Notification -->
+      <div id="toast-copy" class="hidden text-center text-xs font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 rounded-lg py-2 transition-all">
+        <i class="fa-solid fa-circle-check mr-1"></i> Ссылка с твоим текстом скопирована!
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Code Engine -->
+  <script>
+    /* =========================================================================
+       1. STATE & URL CONFIGURATION MANAGEMENT
+       ========================================================================= */
+    const defaultConfig = {
+      title: "Для Настёны",
+      subtitle: "Пусть у тебя всегда будет повод улыбаться ✨",
+      tagline: "ЦВЕТЫ, КОТОРЫЕ НЕ ЗАВЯНУТ"
+    };
+
+    let appConfig = { ...defaultConfig };
+
+    // Read URL Hash or Query parameters for customized greetings
+    function parseURLConfig() {
+      try {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+          const params = new URLSearchParams(hash);
+          if (params.has('name')) appConfig.title = params.get('name');
+          if (params.has('msg')) appConfig.subtitle = params.get('msg');
+          if (params.has('tag')) appConfig.tagline = params.get('tag');
+          return;
+        }
+        const search = window.location.search.substring(1);
+        if (search) {
+          const params = new URLSearchParams(search);
+          if (params.has('name')) appConfig.title = params.get('name');
+          if (params.has('msg')) appConfig.subtitle = params.get('msg');
+          if (params.has('tag')) appConfig.tagline = params.get('tag');
+        }
+      } catch (e) {
+        console.warn("URL parsing exception:", e);
+      }
+    }
+
+    function updateDOMText() {
+      document.getElementById('disp-title').innerText = appConfig.title;
+      document.getElementById('disp-subtitle').innerText = appConfig.subtitle;
+      document.getElementById('disp-tagline').innerText = appConfig.tagline;
+
+      document.getElementById('input-title').value = appConfig.title;
+      document.getElementById('input-subtitle').value = appConfig.subtitle;
+      document.getElementById('input-tagline').value = appConfig.tagline;
+
+      document.title = `${appConfig.title} — Особенный Букет`;
+    }
+
+    /* =========================================================================
+       2. WebAudio Romantic Chime Synthesizer
+       ========================================================================= */
+    let audioCtx = null;
+    let isSoundPlaying = false;
+    let soundTimer = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+    }
+
+    // Play a delicate romantic arpeggio chord note
+    function playChimeNote(freq, duration = 2.5, gainVal = 0.08) {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        // Soft sine sound with faint harmonics
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(gainVal, audioCtx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    const pentatonicScale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+
+    function startAmbientSound() {
+      initAudio();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      isSoundPlaying = true;
+      document.getElementById('sound-icon').className = 'fa-solid fa-volume-high text-pink-400';
+
+      function scheduleNextNote() {
+        if (!isSoundPlaying) return;
+        const note = pentatonicScale[Math.floor(Math.random() * pentatonicScale.length)];
+        playChimeNote(note, 3.0, 0.05 + Math.random() * 0.04);
+        const delay = 600 + Math.random() * 1400;
+        soundTimer = setTimeout(scheduleNextNote, delay);
+      }
+      scheduleNextNote();
+    }
+
+    function stopAmbientSound() {
+      isSoundPlaying = false;
+      if (soundTimer) clearTimeout(soundTimer);
+      document.getElementById('sound-icon').className = 'fa-solid fa-volume-xmark text-zinc-300';
+    }
+
+    /* =========================================================================
+       3. 3D ASCII BOUQUET GEOMETRY ENGINE
+       ========================================================================= */
+    const canvas = document.getElementById('ascii-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let dpr = window.devicePixelRatio || 1;
+
+    // Camera & Interaction parameters
+    let rotX = -0.12; // Initial Pitch angle
+    let rotY = 0;     // Initial Yaw angle
+    let targetRotX = -0.12;
+    let targetRotY = 0;
+    let rotVelX = 0;
+    let rotVelY = 0;
+
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // Bloom growth timeline (0 -> 1)
+    let bloomProgress = 0;
+    let bloomTarget = 1;
+    let bloomSpeed = 0.012;
+
+    // Points arrays
+    let bouquetPoints = [];
+    let backgroundParticles = [];
+
+    // Character set definition for floral depth shading
+    const DENSE_CHARS = ['@', '#', '$', '%', '&', '*', '+', '=', ':', '-', '.', '°'];
+    const STEM_CHARS = ['|', '/', '\\', '!', 'i', '(', ')', '}'];
+
+    /* --- Helper 3D math & point creation --- */
+    function createPoint(x, y, z, char, color, size = 12, type = 'petal') {
+      return {
+        x, y, z,          // Base 3D coordinate
+        char,             // ASCII Glyph
+        color,            // CSS RGB/HSL Color
+        size,             // Font size in pixels
+        type,             // stem, leaf, petal, center, ribbon, filler
+        phase: Math.random() * Math.PI * 2, // Animation float offset
+        origY: y
+      };
+    }
+
+    /* --- Generate Parametric 3D Bouquet --- */
+    function generateBouquetPoints() {
+      const points = [];
+
+      // Color Palette definition
+      const colors = {
+        roseRed: ['#ff2a5f', '#ff477e', '#e60039', '#ff758f', '#990026'],
+        pinkDaisy: ['#ff66c4', '#ff85d0', '#ffb3e6', '#ff33a8', '#ff99dd'],
+        whiteDaisy: ['#ffffff', '#f4f4f6', '#e2e2e8', '#ffd166'],
+        goldenCenter: ['#ffb703', '#fb8500', '#ffd166', '#fcbf49'],
+        sunflowerYellow: ['#ffb703', '#ffc300', '#ffd000', '#e85d04'],
+        lavenderPurple: ['#b5179e', '#7209b7', '#a2d2ff', '#c77dff'],
+        leafGreen: ['#2ec4b6', '#20bf55', '#10b981', '#059669', '#34d399', '#15803d'],
+        stemDark: ['#166534', '#14532d', '#0f5132'],
+        ribbonPink: ['#ff4d6d', '#ff758f', '#ff8fa3', '#c9184a']
+      };
+
+      /* 1. LOWER STEM BUNDLE & BASE TIE POINT */
+      const stemCount = 180;
+      const tieY = 60; // Ribbon tie Y-level
+
+      for (let i = 0; i < stemCount; i++) {
+        // Stems converge from bottom (0, 180, 0) up to tie point, then spread outward
+        const t = Math.random(); // 0 to 1 down the stem
+        const angle = Math.random() * Math.PI * 2;
+
+        let x, y, z;
+        if (t < 0.4) {
+          // Below ribbon tie
+          const r = (1 - t) * 14 * Math.random();
+          y = tieY + t * 140;
+          x = Math.cos(angle) * r;
+          z = Math.sin(angle) * r;
+        } else {
+          // Above ribbon tie (fanning out to individual flowers)
+          const spreadFactor = (t - 0.4) * 1.8;
+          const r = spreadFactor * 70 * Math.random();
+          y = tieY - (t - 0.4) * 150;
+          x = Math.cos(angle) * r;
+          z = Math.sin(angle) * r;
+        }
+
+        const char = STEM_CHARS[Math.floor(Math.random() * STEM_CHARS.length)];
+        const color = colors.stemDark[Math.floor(Math.random() * colors.stemDark.length)];
+        points.push(createPoint(x, y, z, char, color, 10, 'stem'));
+      }
+
+      /* 2. RIBBON BOW AT TIE POINT */
+      const ribbonCount = 220;
+      for (let i = 0; i < ribbonCount; i++) {
+        const u = Math.random() * Math.PI * 2;
+        // Butterfly bow parametric loops
+        const scale = 22;
+        const loopX = Math.sin(u) * scale * 1.2;
+        const loopY = tieY + Math.sin(u * 2) * (scale * 0.4);
+        const loopZ = Math.cos(u) * (scale * 0.5) + 12;
+
+        const char = ['@', '#', '=', '%', '8'][Math.floor(Math.random() * 5)];
+        const color = colors.ribbonPink[Math.floor(Math.random() * colors.ribbonPink.length)];
+        points.push(createPoint(loopX, loopY, loopZ, char, color, 12, 'ribbon'));
+      }
+
+      /* 3. LUSH LEAF CLUSTERS */
+      const leafCount = 350;
+      for (let i = 0; i < leafCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = (Math.random() - 0.5) * Math.PI * 0.7;
+        const r = 35 + Math.random() * 65;
+
+        const x = r * Math.cos(phi) * Math.cos(theta);
+        const y = tieY - 20 - Math.abs(r * Math.sin(phi)) * 1.1;
+        const z = r * Math.cos(phi) * Math.sin(theta);
+
+        const leafChars = ['w', 'v', '%', '#', 'M', 'W', '@'];
+        const char = leafChars[Math.floor(Math.random() * leafChars.length)];
+        const color = colors.leafGreen[Math.floor(Math.random() * colors.leafGreen.length)];
+        points.push(createPoint(x, y, z, char, color, 11, 'leaf'));
+      }
+
+      /* 4. MAIN 3D FLOWER HEADS ARRANGEMENT */
+      // Flower positions in 3D relative to bouquet top
+      const flowerPositions = [
+        // Center Large Red Rose
+        { cx: 0, cy: -95, cz: 25, radius: 36, type: 'rose', colorPalette: colors.roseRed },
+        // Pink Gerberas (Top Left & Top Right)
+        { cx: -55, cy: -110, cz: 10, radius: 32, type: 'daisy', colorPalette: colors.pinkDaisy },
+        { cx: 50, cy: -105, cz: 15, radius: 30, type: 'daisy', colorPalette: colors.pinkDaisy },
+        // White Chamomile / Daisy (Front Center & Mid Right)
+        { cx: -25, cy: -65, cz: 45, radius: 28, type: 'chamomile', colorPalette: colors.whiteDaisy },
+        { cx: 65, cy: -60, cz: 30, radius: 26, type: 'chamomile', colorPalette: colors.whiteDaisy },
+        // Bright Sunflower / Marigold (Mid Left)
+        { cx: -65, cy: -50, cz: 20, radius: 34, type: 'sunflower', colorPalette: colors.sunflowerYellow },
+        // Soft Purple / Lavender Blooms (Top Center & Outer Fillers)
+        { cx: 20, cy: -135, cz: -10, radius: 26, type: 'lavender', colorPalette: colors.lavenderPurple },
+        { cx: -20, cy: -130, cz: -5, radius: 24, type: 'rose', colorPalette: colors.roseRed }
+      ];
+
+      flowerPositions.forEach(fl => {
+        // Generate Center core of flower
+        const corePoints = 35;
+        for (let c = 0; c < corePoints; c++) {
+          const cr = Math.random() * (fl.radius * 0.28);
+          const ca = Math.random() * Math.PI * 2;
+          const fx = fl.cx + Math.cos(ca) * cr;
+          const fy = fl.cy + Math.sin(ca) * cr;
+          const fz = fl.cz + (Math.random() - 0.5) * 6;
+
+          const centerColor = fl.type === 'sunflower' ? '#5c3d11' :
+                             (fl.type === 'chamomile' || fl.type === 'daisy') ? '#ffb703' : '#ffd166';
+          const char = ['@', 'O', 'o', '#', '0'][Math.floor(Math.random() * 5)];
+          points.push(createPoint(fx, fy, fz, char, centerColor, 12, 'center'));
+        }
+
+        // Generate Petal Rays / Spherical Layers
+        const petalLayers = fl.type === 'rose' ? 14 : 10;
+        const petalsPerLayer = fl.type === 'sunflower' ? 24 : 16;
+
+        for (let l = 1; l <= petalLayers; l++) {
+          const layerFrac = l / petalLayers;
+          const layerR = fl.radius * layerFrac;
+
+          for (let p = 0; p < petalsPerLayer; p++) {
+            const angle = (p / petalsPerLayer) * Math.PI * 2 + (l * 0.2);
+            // Cup shape curvature in 3D
+            const cupCurvature = Math.pow(layerFrac, 1.8) * 14;
+
+            const fx = fl.cx + Math.cos(angle) * layerR + (Math.random() - 0.5) * 4;
+            const fy = fl.cy + Math.sin(angle) * layerR - cupCurvature + (Math.random() - 0.5) * 4;
+            const fz = fl.cz + (Math.random() - 0.5) * 8;
+
+            const charList = fl.type === 'rose' ? ['@', '#', '%', '$', '&', '*'] :
+                             fl.type === 'sunflower' ? ['*', '#', 'V', 'v', '+'] : ['*', '+', 'i', 'x', '='];
+            const char = charList[Math.floor(Math.random() * charList.length)];
+            const color = fl.colorPalette[Math.floor(Math.random() * fl.colorPalette.length)];
+
+            points.push(createPoint(fx, fy, fz, char, color, 11 + Math.random() * 3, 'petal'));
+          }
+        }
+      });
+
+      /* 5. BABY'S BREATH / GYPSOPHILA SPARKLING FILLER SPRIGS */
+      const fillerCount = 280;
+      for (let i = 0; i < fillerCount; i++) {
+        const fa = Math.random() * Math.PI * 2;
+        const fr = 40 + Math.random() * 65;
+        const fx = Math.cos(fa) * fr;
+        const fy = -40 - Math.random() * 110;
+        const fz = Math.sin(fa) * fr;
+
+        const char = ['.', '*', '°', ':', '+'][Math.floor(Math.random() * 5)];
+        const color = Math.random() > 0.4 ? '#ffffff' : '#80ed99';
+        points.push(createPoint(fx, fy, fz, char, color, 9, 'filler'));
+      }
+
+      return points;
+    }
+
+    /* --- Background Floating Particle System --- */
+    function initBackgroundParticles() {
+      backgroundParticles = [];
+      const particleCount = Math.floor(Math.min(width, height) * 0.08);
+
+      for (let i = 0; i < particleCount; i++) {
+        backgroundParticles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          z: Math.random() * 500,
+          size: 1 + Math.random() * 2.5,
+          color: ['rgba(255, 182, 193, ', 'rgba(255, 235, 205, ', 'rgba(255, 255, 255, ', 'rgba(230, 230, 250, '][Math.floor(Math.random() * 4)],
+          alpha: 0.2 + Math.random() * 0.5,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: -0.2 - Math.random() * 0.4,
+          char: ['*', '•', '°', '.'][Math.floor(Math.random() * 4)]
+        });
+      }
+    }
+
+    /* =========================================================================
+       4. CANVAS RENDERING & RESIZING ENGINE
+       ========================================================================= */
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = window.devicePixelRatio || 1;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      ctx.scale(dpr, dpr);
+      initBackgroundParticles();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    /* --- 3D Projection & Dynamic Sway Math --- */
+    function renderFrame(time) {
+      // Clear background with soft radial dark gradient
+      const bgGradient = ctx.createRadialGradient(
+        width / 2, height * 0.45, 20,
+        width / 2, height / 2, Math.max(width, height) * 0.75
+      );
+      bgGradient.addColorStop(0, '#151520');
+      bgGradient.addColorStop(0.5, '#0b0b10');
+      bgGradient.addColorStop(1, '#050507');
+
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, width, height);
+
+      /* 1. Render Background Floating Particles */
+      ctx.font = '10px monospace';
+      backgroundParticles.forEach(p => {
+        p.y += p.vy;
+        p.x += p.vx + Math.sin(time * 0.001 + p.z) * 0.2;
+
+        if (p.y < -10) p.y = height + 10;
+        if (p.x < -10) p.x = width + 10;
+        if (p.x > width + 10) p.x = -10;
+
+        ctx.fillStyle = `${p.color}${p.alpha})`;
+        ctx.fillText(p.char, p.x, p.y);
+      });
+
+      /* 2. Update Bloom Animation & Controls */
+      if (bloomProgress < bloomTarget) {
+        bloomProgress += bloomSpeed;
+        if (bloomProgress >= 1) {
+          bloomProgress = 1;
+          document.getElementById('text-wrapper').classList.add('visible');
+        }
+      }
+
+      /* 3. Smooth Rotation Physics (Inertia & Auto-Sway) */
+      if (!isDragging) {
+        rotVelX *= 0.92;
+        rotVelY *= 0.92;
+
+        // Subtle dynamic wind swaying
+        const autoSwayY = Math.sin(time * 0.0012) * 0.08;
+        const autoSwayX = Math.cos(time * 0.0015) * 0.03;
+
+        targetRotY += 0.0025; // Gentle constant rotation
+        rotX += (targetRotX + autoSwayX - rotX) * 0.05 + rotVelX;
+        rotY += (targetRotY + autoSwayY - rotY) * 0.05 + rotVelY;
+      } else {
+        rotX += rotVelX;
+        rotY += rotVelY;
+        rotVelX *= 0.5;
+        rotVelY *= 0.5;
+      }
+
+      // Clamp pitch rotation angle
+      rotX = Math.max(-0.6, Math.min(0.4, rotX));
+
+      /* 4. Transform & Project 3D Bouquet Points */
+      const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+      // Center bouquet on viewport
+      const centerX = width / 2;
+      const centerY = height * 0.44;
+      const fov = 420; // Perspective field of view
+
+      // Render projected points array
+      const projected = [];
+
+      for (let i = 0; i < bouquetPoints.length; i++) {
+        const pt = bouquetPoints[i];
+
+        // Apply blooming scale transition (sprouts upward from base)
+        const bloomFactor = Math.min(1, Math.max(0, (bloomProgress * 1.3) - (pt.origY / -150) * 0.3));
+        if (bloomFactor <= 0.01) continue;
+
+        // Apply wind distortion offset
+        const sway = Math.sin(time * 0.002 + pt.phase) * 2.5 * (pt.origY < 0 ? 1 : 0.2);
+        let x0 = pt.x + sway;
+        let y0 = pt.origY * bloomFactor;
+        let z0 = pt.z;
+
+        // 3D Rotation Matrix Calculation
+        // Rotate around Y axis
+        let x1 = x0 * cosY + z0 * sinY;
+        let z1 = -x0 * sinY + z0 * cosY;
+
+        // Rotate around X axis
+        let y2 = y0 * cosX - z1 * sinX;
+        let z2 = y0 * sinX + z1 * cosX;
+
+        // Perspective Projection
+        const scale = fov / (fov + z2 + 220);
+        const screenX = centerX + x1 * scale;
+        const screenY = centerY + y2 * scale;
+
+        projected.push({
+          x: screenX,
+          y: screenY,
+          z: z2,
+          scale: scale,
+          char: pt.char,
+          color: pt.color,
+          size: pt.size * scale * bloomFactor,
+          type: pt.type
+        });
+      }
+
+      // Depth Sort (Back to Front)
+      projected.sort((a, b) => b.z - a.z);
+
+      /* 5. Draw ASCII Characters on Canvas */
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let i = 0; i < projected.length; i++) {
+        const p = projected[i];
+
+        // Font scaling
+        const fontSize = Math.max(6, Math.round(p.size));
+        ctx.font = `600 ${fontSize}px "JetBrains Mono", monospace`;
+
+        // Glowing bloom for petal centers & ribbons
+        if (p.type === 'center' || p.type === 'ribbon' || p.type === 'petal') {
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = p.type === 'center' ? 12 : 6;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.char, p.x, p.y);
+      }
+
+      // Reset Shadow
+      ctx.shadowBlur = 0;
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    /* =========================================================================
+       5. USER INTERACTION & TOUCH CONTROLS
+       ========================================================================= */
+    const container = document.getElementById('canvas-container');
+    const touchHint = document.getElementById('touch-hint');
+
+    function hideTouchHint() {
+      if (touchHint) {
+        touchHint.style.opacity = '0';
+      }
+    }
+
+    // Pointer Down (Mouse & Touch)
+    function handlePointerDown(clientX, clientY) {
+      isDragging = true;
+      lastMouseX = clientX;
+      lastMouseY = clientY;
+      hideTouchHint();
+    }
+
+    // Pointer Move
+    function handlePointerMove(clientX, clientY) {
+      if (!isDragging) return;
+      const deltaX = clientX - lastMouseX;
+      const deltaY = clientY - lastMouseY;
+
+      rotVelY = deltaX * 0.005;
+      rotVelX = deltaY * 0.005;
+
+      targetRotY += rotVelY;
+      targetRotX += rotVelX;
+
+      lastMouseX = clientX;
+      lastMouseY = clientY;
+    }
+
+    // Pointer Up
+    function handlePointerEnd() {
+      isDragging = false;
+    }
+
+    // Mouse Listeners
+    container.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', handlePointerEnd);
+
+    // Touch Listeners (Mobile Safari Ready)
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1) {
+        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', handlePointerEnd);
+
+    /* =========================================================================
+       6. UI CONTROLS & MODAL EVENT HANDLERS
+       ========================================================================= */
+    // Replay Bloom Animation
+    document.getElementById('btn-replay').addEventListener('click', () => {
+      bloomProgress = 0;
+      document.getElementById('text-wrapper').classList.remove('visible');
+      setTimeout(() => {
+        document.getElementById('text-wrapper').classList.add('visible');
+      }, 1600);
+    });
+
+    // Toggle Sound
+    document.getElementById('btn-sound').addEventListener('click', () => {
+      if (isSoundPlaying) {
+        stopAmbientSound();
+      } else {
+        startAmbientSound();
+      }
+    });
+
+    // Modal Display Controls
+    const modalEdit = document.getElementById('modal-edit');
+    const modalCard = document.getElementById('modal-card');
+
+    function openModal() {
+      modalEdit.classList.remove('opacity-0', 'pointer-events-none');
+      modalCard.classList.remove('scale-95');
+      modalCard.classList.add('scale-100');
+    }
+
+    function closeModal() {
+      modalEdit.classList.add('opacity-0', 'pointer-events-none');
+      modalCard.classList.remove('scale-100');
+      modalCard.classList.add('scale-95');
+      document.getElementById('toast-copy').classList.add('hidden');
+    }
+
+    document.getElementById('btn-edit').addEventListener('click', openModal);
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+
+    // Apply Form Changes
+    document.getElementById('btn-save-apply').addEventListener('click', () => {
+      appConfig.title = document.getElementById('input-title').value.trim() || defaultConfig.title;
+      appConfig.subtitle = document.getElementById('input-subtitle').value.trim() || defaultConfig.subtitle;
+      appConfig.tagline = document.getElementById('input-tagline').value.trim() || defaultConfig.tagline;
+
+      updateDOMText();
+      closeModal();
+    });
+
+    // Preset Buttons
+    document.querySelectorAll('.btn-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('input-title').value = btn.getAttribute('data-title');
+        document.getElementById('input-subtitle').value = btn.getAttribute('data-sub');
+      });
+    });
+
+    // Copy Custom Shareable URL
+    document.getElementById('btn-copy-link').addEventListener('click', () => {
+      const titleVal = document.getElementById('input-title').value.trim() || defaultConfig.title;
+      const subVal = document.getElementById('input-subtitle').value.trim() || defaultConfig.subtitle;
+      const tagVal = document.getElementById('input-tagline').value.trim() || defaultConfig.tagline;
+
+      const params = new URLSearchParams();
+      params.set('name', titleVal);
+      params.set('msg', subVal);
+      params.set('tag', tagVal);
+
+      const shareableURL = `${window.location.origin}${window.location.pathname}#${params.toString()}`;
+
+      // Clipboard copy helper with fallback
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareableURL);
+      } else {
+        const tempInput = document.createElement('input');
+        tempInput.value = shareableURL;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+
+      // Update current DOM immediately
+      appConfig.title = titleVal;
+      appConfig.subtitle = subVal;
+      appConfig.tagline = tagVal;
+      updateDOMText();
+
+      // Show Toast Notification
+      const toast = document.getElementById('toast-copy');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3500);
+    });
+
+    /* =========================================================================
+       7. INITIALIZATION
+       ========================================================================= */
+    window.addEventListener('DOMContentLoaded', () => {
+      parseURLConfig();
+      updateDOMText();
+      resizeCanvas();
+
+      // Generate 3D Bouquet Points
+      bouquetPoints = generateBouquetPoints();
+
+      // Start Animation Loop
+      requestAnimationFrame(renderFrame);
+
+      // Hide hint automatically after 6 seconds
+      setTimeout(hideTouchHint, 6000);
+    });
+  </script>
+</body>
+</html>
